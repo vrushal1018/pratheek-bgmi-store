@@ -1,4 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
+import { 
+  addBGMIID, 
+  getAllBGMIIDs, 
+  updateBGMIID, 
+  deleteBGMIID, 
+  markBGMIIDAsSold, 
+  getBGMIIDById 
+} from '../firebase/services';
 
 export interface BGMIID {
   id: string;
@@ -50,6 +58,52 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
 
   const [budgetFilter, setBudgetFilter] = useState<number>(0);
 
+  // Sample IDs that will show for all users (including hosted version)
+  const sampleIds: BGMIID[] = [
+    {
+      id: 'sample-1',
+      title: 'Pro Conqueror Account',
+      description: 'High-level BGMI account with rare skins, excellent stats, and competitive gameplay. Perfect for serious players.',
+      price: 15000,
+      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
+      level: 85,
+      skins: ['M416 Glacier', 'AKM Dragon', 'Kar98k Golden Dragon', 'AWM Dragon'],
+      rank: 'Conqueror',
+      kd: 4.2,
+      matches: 1250,
+      available: true,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'sample-2',
+      title: 'Ace Level Account',
+      description: 'Mid-tier BGMI account with good skins and balanced stats. Great for casual to competitive players.',
+      price: 8000,
+      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
+      level: 65,
+      skins: ['M416 Glacier', 'AKM Dragon', 'Kar98k Golden Dragon'],
+      rank: 'Ace',
+      kd: 3.1,
+      matches: 850,
+      available: true,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'sample-3',
+      title: 'Crown Rank Account',
+      description: 'Entry-level BGMI account with basic skins and decent stats. Perfect for beginners and casual players.',
+      price: 4000,
+      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
+      level: 45,
+      skins: ['M416 Glacier', 'AKM Dragon'],
+      rank: 'Crown',
+      kd: 2.5,
+      matches: 500,
+      available: true,
+      createdAt: new Date().toISOString(),
+    },
+  ];
+
   const filteredIds = useMemo(() => 
     budgetFilter > 0 
       ? ids.filter(id => id.price <= budgetFilter && id.available)
@@ -57,43 +111,62 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
     [ids, budgetFilter]
   );
 
-  const addNewID = useCallback((newID: Omit<BGMIID, 'id' | 'createdAt'>) => {
-    // Generate a unique ID based on timestamp and random number
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    const id = `${timestamp}-${random}`;
-    const createdAt = new Date().toISOString();
-    
-    const newIDWithMetadata = { ...newID, id, createdAt };
-    console.log('Adding new ID:', newIDWithMetadata);
-    
-    setIds(prev => {
-      const updatedIds = [...prev, newIDWithMetadata];
-      // Immediately save to localStorage to ensure persistence
-      try {
-        localStorage.setItem('bgmi-ids', JSON.stringify(updatedIds));
-        console.log('Immediately saved new ID to localStorage');
-      } catch (error) {
-        console.error('Error immediately saving to localStorage:', error);
-      }
-      return updatedIds;
-    });
+  const addNewID = useCallback(async (newID: Omit<BGMIID, 'id' | 'createdAt'>) => {
+    try {
+      console.log('Adding new ID to Firebase:', newID);
+      
+      // Add to Firebase
+      const firebaseId = await addBGMIID(newID);
+      console.log('Successfully added to Firebase with ID:', firebaseId);
+      
+      // Update local state with the new ID from Firebase
+      const newIDWithMetadata = { 
+        ...newID, 
+        id: firebaseId, 
+        createdAt: new Date().toISOString() 
+      };
+      
+      setIds(prev => [...prev, newIDWithMetadata]);
+      console.log('Updated local state with new ID');
+      
+    } catch (error) {
+      console.error('Error adding new ID:', error);
+      throw error;
+    }
   }, []);
 
-  const updateID = (id: string, updates: Partial<BGMIID>) => {
-    setIds(prev => prev.map(idItem => 
-      idItem.id === id ? { ...idItem, ...updates } : idItem
-    ));
+  const updateID = async (id: string, updates: Partial<BGMIID>) => {
+    try {
+      await updateBGMIID(id, updates);
+      setIds(prev => prev.map(idItem => 
+        idItem.id === id ? { ...idItem, ...updates } : idItem
+      ));
+    } catch (error) {
+      console.error('Error updating ID:', error);
+      throw error;
+    }
   };
 
-  const deleteID = (id: string) => {
-    setIds(prev => prev.filter(idItem => idItem.id !== id));
+  const deleteID = async (id: string) => {
+    try {
+      await deleteBGMIID(id);
+      setIds(prev => prev.filter(idItem => idItem.id !== id));
+    } catch (error) {
+      console.error('Error deleting ID:', error);
+      throw error;
+    }
   };
 
-  const markAsSold = (id: string) => {
-    setIds(prev => prev.map(idItem => 
-      idItem.id === id ? { ...idItem, available: false } : idItem
-    ));
+  const markAsSold = async (id: string) => {
+    try {
+      await markBGMIIDAsSold(id);
+      setIds(prev => prev.map(idItem => 
+        idItem.id === id ? { ...idItem, available: false } : idItem
+      ));
+    } catch (error) {
+      console.error('Error marking ID as sold:', error);
+      throw error;
+    }
   };
 
   const getIDById = (id: string) => {
@@ -154,74 +227,32 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
     }
   };
 
-  // Load data from localStorage on mount
+  // Load data from Firebase on mount
   useEffect(() => {
-    const loadSavedIds = () => {
+    const loadIdsFromFirebase = async () => {
       try {
-        const savedIds = localStorage.getItem('bgmi-ids');
-        console.log('Loading from localStorage:', savedIds);
+        console.log('Loading IDs from Firebase...');
+        const firebaseIds = await getAllBGMIIDs();
         
-        if (savedIds && savedIds !== 'null' && savedIds !== 'undefined') {
-          const parsedIds = JSON.parse(savedIds);
-          console.log('Parsed IDs from localStorage:', parsedIds);
-          
-          // Validate that parsedIds is an array and has content
-          if (Array.isArray(parsedIds) && parsedIds.length > 0) {
-            setIds(parsedIds);
-            console.log('Successfully loaded', parsedIds.length, 'IDs');
-          } else {
-            console.log('Parsed IDs is not a valid array or is empty');
-            setIds([]);
-          }
+        if (firebaseIds.length > 0) {
+          setIds(firebaseIds);
+          console.log('Successfully loaded', firebaseIds.length, 'IDs from Firebase');
         } else {
-          console.log('No saved IDs found in localStorage');
-          setIds([]);
+          console.log('No IDs found in Firebase, using sample IDs');
+          setIds(sampleIds);
         }
       } catch (error) {
-        console.error('Error loading saved IDs:', error);
-        // If there's an error, clear localStorage and start fresh
-        localStorage.removeItem('bgmi-ids');
-        setIds([]);
+        console.error('Error loading IDs from Firebase:', error);
+        console.log('Using sample IDs due to Firebase error');
+        setIds(sampleIds);
       }
     };
 
     // Load immediately
-    loadSavedIds();
-    
-    // Also listen for storage events (in case localStorage changes in another tab)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'bgmi-ids') {
-        console.log('Storage changed, reloading IDs');
-        loadSavedIds();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
+    loadIdsFromFirebase();
   }, []);
 
-  // Save data to localStorage whenever ids change - with debouncing
-  useEffect(() => {
-    const saveTimeout = setTimeout(() => {
-      if (ids.length > 0) {
-        console.log('Saving IDs to localStorage:', ids);
-        try {
-          localStorage.setItem('bgmi-ids', JSON.stringify(ids));
-          console.log('Successfully saved', ids.length, 'IDs to localStorage');
-        } catch (error) {
-          console.error('Error saving to localStorage:', error);
-        }
-      } else {
-        console.log('No IDs to save, clearing localStorage');
-        localStorage.removeItem('bgmi-ids');
-      }
-    }, 100); // Small delay to ensure state is stable
-
-    return () => clearTimeout(saveTimeout);
-  }, [ids]);
+  // Firebase automatically handles data persistence, no need for localStorage saving
 
   const value: IDContextType = {
     ids,

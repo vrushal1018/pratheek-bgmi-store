@@ -45,7 +45,7 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const newID = {
@@ -61,15 +61,20 @@ const AdminPanel: React.FC = () => {
       available: formData.available,
     };
 
-    if (editingId) {
-      updateID(editingId, newID);
-      setEditingId(null);
-    } else {
-      addNewID(newID);
-    }
+    try {
+      if (editingId) {
+        await updateID(editingId, newID);
+        setEditingId(null);
+      } else {
+        await addNewID(newID);
+      }
 
-    resetForm();
-    setShowAddModal(false);
+      resetForm();
+      setShowAddModal(false);
+    } catch (error) {
+      console.error('Error saving ID:', error);
+      alert('Error saving ID. Please try again.');
+    }
   };
 
   const handleEdit = (id: string) => {
@@ -92,9 +97,14 @@ const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this ID?')) {
-      deleteID(id);
+      try {
+        await deleteID(id);
+      } catch (error) {
+        console.error('Error deleting ID:', error);
+        alert('Error deleting ID. Please try again.');
+      }
     }
   };
 
