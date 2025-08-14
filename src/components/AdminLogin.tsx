@@ -4,6 +4,7 @@ import { Lock, Eye, EyeOff, X } from 'lucide-react';
 
 const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { login } = useAdmin();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +39,7 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     // Simulate a small delay for better UX
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const loginResult = login(password);
+    const loginResult = await login(email, password);
     console.log('AdminLogin: login result:', loginResult);
 
     if (loginResult) {
@@ -68,7 +69,7 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         }, 5 * 60 * 1000);
       } else {
         const remainingAttempts = 3 - newAttempts;
-        setError(`Invalid password. ${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining.`);
+        setError(`Invalid credentials. ${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining.`);
         setPassword('');
         console.log('AdminLogin: Password cleared, attempts remaining:', remainingAttempts);
         // IMPORTANT: Modal should stay open here - do NOT call onClose()
@@ -110,6 +111,19 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
+            <label className="block text-white font-medium mb-2">Admin Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field"
+              placeholder="Enter admin email"
+              required
+              autoFocus
+            />
+          </div>
+
+          <div>
             <label className="block text-white font-medium mb-2">Admin Password</label>
             <div className="relative">
               <input
@@ -119,7 +133,6 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 className="input-field pr-12"
                 placeholder="Enter admin password"
                 required
-                autoFocus
               />
               <button
                 type="button"
@@ -158,7 +171,7 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           <div className="pt-4 space-y-3">
             <button
               type="submit"
-              disabled={isLoading || !password || isLocked}
+              disabled={isLoading || !email || !password || isLocked}
               className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
@@ -186,6 +199,7 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                   setIsLocked(false);
                   setAttempts(0);
                   setError('');
+                  setEmail('');
                   setPassword('');
                 }}
                 className="w-full px-4 py-2 bg-orange-600/20 border border-orange-500/30 text-orange-400 rounded-lg hover:bg-orange-600/30 transition-colors"
@@ -199,21 +213,23 @@ const AdminLogin: React.FC<{ onClose: () => void }> = ({ onClose }) => {
               <div className="space-y-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setAttempts(0);
-                    setError('');
-                    setPassword('');
-                  }}
+                                  onClick={() => {
+                  setAttempts(0);
+                  setError('');
+                  setEmail('');
+                  setPassword('');
+                }}
                   className="w-full px-4 py-2 bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-600/30 transition-colors"
                 >
                   Try Again
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    setPassword('');
-                    setError('');
-                  }}
+                                  onClick={() => {
+                  setEmail('');
+                  setPassword('');
+                  setError('');
+                }}
                   className="w-full px-4 py-2 bg-gray-600/20 border border-gray-500/30 text-gray-400 rounded-lg hover:bg-gray-600/30 transition-colors"
                 >
                   Clear Password

@@ -4,9 +4,8 @@ import {
   getAllBGMIIDs, 
   updateBGMIID, 
   deleteBGMIID, 
-  markBGMIIDAsSold, 
-  getBGMIIDById 
-} from '../firebase/services';
+  markBGMIIDAsSold
+} from '../pocketbase/services';
 
 export interface BGMIID {
   id: string;
@@ -58,51 +57,7 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
 
   const [budgetFilter, setBudgetFilter] = useState<number>(0);
 
-  // Sample IDs that will show for all users (including hosted version)
-  const sampleIds: BGMIID[] = [
-    {
-      id: 'sample-1',
-      title: 'Pro Conqueror Account',
-      description: 'High-level BGMI account with rare skins, excellent stats, and competitive gameplay. Perfect for serious players.',
-      price: 15000,
-      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
-      level: 85,
-      skins: ['M416 Glacier', 'AKM Dragon', 'Kar98k Golden Dragon', 'AWM Dragon'],
-      rank: 'Conqueror',
-      kd: 4.2,
-      matches: 1250,
-      available: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'sample-2',
-      title: 'Ace Level Account',
-      description: 'Mid-tier BGMI account with good skins and balanced stats. Great for casual to competitive players.',
-      price: 8000,
-      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
-      level: 65,
-      skins: ['M416 Glacier', 'AKM Dragon', 'Kar98k Golden Dragon'],
-      rank: 'Ace',
-      kd: 3.1,
-      matches: 850,
-      available: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'sample-3',
-      title: 'Crown Rank Account',
-      description: 'Entry-level BGMI account with basic skins and decent stats. Perfect for beginners and casual players.',
-      price: 4000,
-      image: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=300&fit=crop',
-      level: 45,
-      skins: ['M416 Glacier', 'AKM Dragon'],
-      rank: 'Crown',
-      kd: 2.5,
-      matches: 500,
-      available: true,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+
 
   const filteredIds = useMemo(() => 
     budgetFilter > 0 
@@ -113,16 +68,16 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
 
   const addNewID = useCallback(async (newID: Omit<BGMIID, 'id' | 'createdAt'>) => {
     try {
-      console.log('Adding new ID to Firebase:', newID);
+      console.log('Adding new ID to PocketBase:', newID);
       
-      // Add to Firebase
-      const firebaseId = await addBGMIID(newID);
-      console.log('Successfully added to Firebase with ID:', firebaseId);
+      // Add to PocketBase
+      const pocketbaseId = await addBGMIID(newID);
+      console.log('Successfully added to PocketBase with ID:', pocketbaseId);
       
-      // Update local state with the new ID from Firebase
+      // Update local state with the new ID from PocketBase
       const newIDWithMetadata = { 
         ...newID, 
-        id: firebaseId, 
+        id: pocketbaseId, 
         createdAt: new Date().toISOString() 
       };
       
@@ -227,32 +182,32 @@ export const IDProvider: React.FC<IDProviderProps> = ({ children }) => {
     }
   };
 
-  // Load data from Firebase on mount
+  // Load data from PocketBase on mount
   useEffect(() => {
-    const loadIdsFromFirebase = async () => {
+    const loadIdsFromPocketBase = async () => {
       try {
-        console.log('Loading IDs from Firebase...');
-        const firebaseIds = await getAllBGMIIDs();
+        console.log('Loading IDs from PocketBase...');
+        const pocketbaseIds = await getAllBGMIIDs();
         
-        if (firebaseIds.length > 0) {
-          setIds(firebaseIds);
-          console.log('Successfully loaded', firebaseIds.length, 'IDs from Firebase');
+        if (pocketbaseIds.length > 0) {
+          setIds(pocketbaseIds);
+          console.log('Successfully loaded', pocketbaseIds.length, 'IDs from PocketBase');
         } else {
-          console.log('No IDs found in Firebase, using sample IDs');
-          setIds(sampleIds);
+          console.log('No IDs found in PocketBase, starting with empty list');
+          setIds([]);
         }
       } catch (error) {
-        console.error('Error loading IDs from Firebase:', error);
-        console.log('Using sample IDs due to Firebase error');
-        setIds(sampleIds);
+        console.error('Error loading IDs from PocketBase:', error);
+        console.log('Starting with empty list due to PocketBase error');
+        setIds([]);
       }
     };
 
     // Load immediately
-    loadIdsFromFirebase();
-  }, []);
+    loadIdsFromPocketBase();
+  }, []); // Empty dependency array
 
-  // Firebase automatically handles data persistence, no need for localStorage saving
+  // PocketBase automatically handles data persistence, no need for localStorage saving
 
   const value: IDContextType = {
     ids,

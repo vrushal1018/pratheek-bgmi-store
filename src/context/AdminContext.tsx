@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import PocketBaseAuth from '../pocketbase/auth';
 
 interface AdminContextType {
   isAdmin: boolean;
-  login: (password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => void;
 }
@@ -17,7 +18,7 @@ export const useAdmin = () => {
       console.warn('useAdmin called outside of AdminProvider, using fallback values');
       return {
         isAdmin: false,
-        login: (password: string) => {
+        login: async (email: string, password: string) => {
           console.warn('Login attempted outside of AdminProvider');
           return false;
         },
@@ -35,7 +36,7 @@ export const useAdmin = () => {
     // Return fallback values if there's any error
     return {
       isAdmin: false,
-      login: (password: string) => false,
+      login: async (email: string, password: string) => false,
       logout: () => {},
       checkAuth: () => {},
     };
@@ -60,28 +61,32 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Admin password - in production, this should be stored securely on the server
-  const ADMIN_PASSWORD = 'bgmi2024';
-
-  const login = (password: string): boolean => {
-    console.log('AdminContext: Login attempt with password:', password === ADMIN_PASSWORD ? 'CORRECT' : 'INCORRECT');
-    if (password === ADMIN_PASSWORD) {
-      console.log('AdminContext: Setting isAdmin to true');
-      setIsAdmin(true);
-      try {
-        localStorage.setItem('bgmi-admin-auth', 'true');
-        console.log('AdminContext: Saved to localStorage');
-      } catch (error) {
-        console.error('Error saving to localStorage:', error);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('AdminContext: Login attempt with email:', email);
+    try {
+      const success = await PocketBaseAuth.login(email, password);
+      if (success) {
+        console.log('AdminContext: Setting isAdmin to true');
+        setIsAdmin(true);
+        try {
+          localStorage.setItem('bgmi-admin-auth', 'true');
+          console.log('AdminContext: Saved to localStorage');
+        } catch (error) {
+          console.error('Error saving to localStorage:', error);
+        }
+        return true;
       }
-      return true;
+      console.log('AdminContext: Login failed');
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    console.log('AdminContext: Login failed');
-    return false;
   };
 
   const logout = () => {
     setIsAdmin(false);
+    PocketBaseAuth.logout();
     try {
       localStorage.removeItem('bgmi-admin-auth');
     } catch (error) {
@@ -91,9 +96,16 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
 
   const checkAuth = () => {
     try {
+      // Check both localStorage and PocketBase auth
       const auth = localStorage.getItem('bgmi-admin-auth');
-      if (auth === 'true') {
+      const isPocketBaseAuth = PocketBaseAuth.isAuthenticated();
+      
+      if (auth === 'true' && isPocketBaseAuth) {
         setIsAdmin(true);
+      } else if (auth === 'true' && !isPocketBaseAuth) {
+        // Clear invalid localStorage if PocketBase auth is not valid
+        localStorage.removeItem('bgmi-admin-auth');
+        setIsAdmin(false);
       }
     } catch (error) {
       console.error('Error checking admin auth:', error);
@@ -115,7 +127,7 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     }
     setIsInitialized(true);
     console.log('AdminContext: Initialized, isAdmin:', isAdmin);
-  }, []);
+  }, []); // Remove isAdmin dependency to prevent infinite loop
 
   const value: AdminContextType = {
     isAdmin,
